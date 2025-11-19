@@ -1,0 +1,5 @@
+pandas
+kafka-python==2.0.2
+faker==20.1.0
+python-dotenv==1.0.0
+python-snappy

@@ -81,9 +81,9 @@ services:
     volumes:
       - ./data:/data
     environment:
-      KAFKA_BOOTSTRAP_SERVERS: 'kafka:29092'
-      KAFKA_TRANSACTION_TOPIC: 'transactions_hsbc'
-      TRANSACTION_RATE: 2
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      KAFKA_TRANSACTION_TOPIC: transactions_hsbc
+      TRANSACTION_RATE: 15
 
   # ========================================
   # PROCESSING CLUSTER (SỬ DỤNG IMAGE CÓ SẴN)
