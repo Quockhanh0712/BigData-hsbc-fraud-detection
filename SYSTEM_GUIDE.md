@@ -394,8 +394,8 @@ docker cp streaming-pipeline/unified_streaming.py spark-master:/opt/spark-apps/
 # Copy feature engineering
 docker cp streaming-pipeline/feature_engineering.py spark-master:/opt/spark-apps/
 
-# Copy model retraining
-docker cp streaming-pipeline/model_retraining.py spark-master:/opt/spark-apps/
+# Copy XGBoost model retraining
+docker cp streaming-pipeline/model_retraining_xgb.py spark-master:/opt/spark-apps/
 ```
 
 #### Submit Streaming Job
@@ -410,7 +410,7 @@ docker exec spark-master /opt/spark/bin/spark-submit \
 **Output mong đợi**:
 ```
 INFO:__main__:✅ Spark session created: 3.5.0
-INFO:__main__:Loading model from /opt/data/models/fraud_rf_lean
+INFO:__main__:Loading XGBoost model from /opt/data/models/fraud_xgb_21features
 INFO:__main__:✅ Model loaded successfully
 INFO:__main__:✅ Subscribed to topic: transactions_hsbc
 INFO:__main__:✅ Archive stream started → s3a://hsbc-data/stream-archive/
@@ -418,6 +418,7 @@ INFO:__main__:✅ Inference stream started
 INFO:__main__:✅ ALL STREAMS STARTED SUCCESSFULLY
 INFO:__main__:📦 Batch 1: 100 transactions
 INFO:__main__:🚨 Batch 1: Detected 2 fraud alerts → Cassandra
+INFO:__main__:🚨 FRAUD DETECTED: Transaction abc123, Amount: $285.54
 ```
 
 #### Dừng Streaming Job
@@ -516,38 +517,37 @@ docker cp streaming-pipeline/model_retraining.py spark-master:/opt/spark-apps/
 docker cp streaming-pipeline/feature_engineering.py spark-master:/opt/spark-apps/
 ```
 
-#### Chạy Training
+#### Chạy XGBoost Training
 ```powershell
-docker exec spark-master /opt/spark/bin/spark-submit \
-  --master spark://spark-master:7077 \
-  --deploy-mode client \
-  --packages org.apache.hadoop:hadoop-aws:3.3.4,com.amazonaws:aws-java-sdk-bundle:1.12.262 \
-  /opt/spark-apps/model_retraining.py
+docker exec spark-master bash -c "cd /opt/spark-apps && export PYSPARK_PYTHON=/usr/bin/python3 && /opt/spark/bin/spark-submit --master local[4] --driver-memory 4g --conf spark.sql.shuffle.partitions=20 /opt/spark-apps/model_retraining_xgb.py"
 ```
 
 #### Training Process
 ```
-1. Load data: fraudTrain.csv (20% sample)
-2. Feature engineering: 7 core features
-3. Train RandomForest: 30 trees, depth 8
-4. Evaluate: AUC-ROC metric
-5. Save model: /opt/data/models/fraud_rf_lean
+1. Load data: fraudTrain.csv (100% - 1,296,675 rows)
+2. Feature engineering: 21 features (numeric, demographic, temporal, geographic, category)
+3. Train XGBoost: 100 trees, depth 6, learning_rate 0.3
+4. Evaluate: AUC-ROC 0.9964, Recall ~99%, Precision ~54.6%
+5. Save model: /opt/data/models/fraud_xgb_21features
 ```
 
-**Thời gian**: ~5-10 phút (depends on data size)
+**Thời gian**: ~6-10 phút (1.3M rows)
 
 #### Kiểm Tra Model Đã Lưu
 ```powershell
-# Kiểm tra local
-docker exec spark-master ls -lh /opt/data/models/fraud_rf_lean
+# Kiểm tra XGBoost model
+docker exec spark-master ls -lh /opt/data/models/fraud_xgb_21features
 
 # Xem metadata
-docker exec spark-master cat /opt/data/models/fraud_rf_lean/metadata/part-00000
+docker exec spark-master cat /opt/data/models/fraud_xgb_21features/metadata/part-00000
+
+# Check XGBoost version
+docker exec spark-master python3 -c "import xgboost; print('XGBoost:', xgboost.__version__)"
 ```
 
 #### Model Location
-- **Container path**: `/opt/data/models/fraud_rf_lean`
-- **Host path**: `./data/models/fraud_rf_lean`
+- **Container path**: `/opt/data/models/fraud_xgb_21features`
+- **Host path**: `./data/models/fraud_xgb_21features`
 
 ---
 
@@ -913,10 +913,10 @@ docker cp cassandra:/tmp/fraud_alerts_backup.csv ./backups/fraud_alerts_$(Get-Da
 docker exec minio mc mirror myminio/hsbc-data ./backups/minio-backup/
 ```
 
-#### Backup Model
+#### Backup XGBoost Model
 ```powershell
-# Copy model directory
-docker cp spark-master:/opt/data/models/fraud_rf_lean ./backups/model_$(Get-Date -Format 'yyyyMMdd_HHmmss')
+# Copy XGBoost model directory
+docker cp spark-master:/opt/data/models/fraud_xgb_21features ./backups/model_$(Get-Date -Format 'yyyyMMdd_HHmmss')
 ```
 
 ---

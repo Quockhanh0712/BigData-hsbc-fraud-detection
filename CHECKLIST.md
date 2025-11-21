@@ -44,10 +44,16 @@ docker exec cassandra cqlsh -e "SELECT * FROM hsbc.fraud_alerts LIMIT 5;"
 
 ---
 
-### Bước 4: Kiểm tra Model có tồn tại
+### Bước 4: Kiểm tra Model và Dependencies
 ```powershell
-# Check model DecisionTree
-docker exec spark-master ls -lh /opt/data/models/fraud_dt_21features/
+# Check XGBoost model
+docker exec spark-master ls -lh /opt/data/models/fraud_xgb_21features/
+
+# Check XGBoost installed
+docker exec spark-master python3 -c "import xgboost; print('XGBoost version:', xgboost.__version__)"
+
+# Nếu không có XGBoost, install:
+docker exec spark-master bash -c "pip3 install xgboost scikit-learn pyarrow"
 
 # Nếu KHÔNG có model → Chạy Bước 5 (Training)
 # Nếu CÓ model → Bỏ qua Bước 5, chuyển sang Bước 6
@@ -55,24 +61,25 @@ docker exec spark-master ls -lh /opt/data/models/fraud_dt_21features/
 
 ---
 
-### Bước 5: Training Model (Nếu chưa có model)
+### Bước 5: Training XGBoost Model (Nếu chưa có model)
 ```powershell
 # Copy files mới nhất vào spark-master
 docker cp streaming-pipeline/feature_engineering.py spark-master:/opt/spark-apps/
-docker cp streaming-pipeline/model_retraining.py spark-master:/opt/spark-apps/
+docker cp streaming-pipeline/model_retraining_xgb.py spark-master:/opt/spark-apps/
 docker cp streaming-pipeline/unified_streaming.py spark-master:/opt/spark-apps/
 
-# Train DecisionTree model (mất ~2 phút)
-docker exec spark-master bash -c "cd /opt/spark-apps && export PYSPARK_PYTHON=/usr/bin/python3 && /opt/spark/bin/spark-submit --master local[4] --driver-memory 4g --conf spark.sql.shuffle.partitions=20 /opt/spark-apps/model_retraining.py"
+# Train XGBoost model (mất ~6-10 phút, 1.3M rows)
+docker exec spark-master bash -c "cd /opt/spark-apps && export PYSPARK_PYTHON=/usr/bin/python3 && /opt/spark/bin/spark-submit --master local[4] --driver-memory 4g --conf spark.sql.shuffle.partitions=20 /opt/spark-apps/model_retraining_xgb.py"
 
 # Verify model đã được tạo
-docker exec spark-master ls -lh /opt/data/models/fraud_dt_21features/
+docker exec spark-master ls -lh /opt/data/models/fraud_xgb_21features/
 ```
 
 **Kết quả mong đợi:**
 ```
 ✅ Model trained successfully
-✅ DecisionTree model saved to /opt/data/models/fraud_dt_21features
+✅ AUC-ROC: 0.9964
+✅ XGBoost model saved to /opt/data/models/fraud_xgb_21features
 ```
 
 ---
@@ -150,19 +157,22 @@ docker logs dashboard --tail 10
 docker exec spark-master pkill -f unified_streaming
 
 # Xóa model cũ
-docker exec spark-master rm -rf /opt/data/models/fraud_dt_21features
+docker exec spark-master rm -rf /opt/data/models/fraud_xgb_21features
 ```
 
 ### Train lại
 ```powershell
 # Copy files mới (nếu có thay đổi)
 docker cp streaming-pipeline/feature_engineering.py spark-master:/opt/spark-apps/
-docker cp streaming-pipeline/model_retraining.py spark-master:/opt/spark-apps/
+docker cp streaming-pipeline/model_retraining_xgb.py spark-master:/opt/spark-apps/
 
-# Train
-docker exec spark-master bash -c "cd /opt/spark-apps && export PYSPARK_PYTHON=/usr/bin/python3 && /opt/spark/bin/spark-submit --master local[4] --driver-memory 4g --conf spark.sql.shuffle.partitions=20 /opt/spark-apps/model_retraining.py"
+# Install/update XGBoost if needed
+docker exec spark-master bash -c "pip3 install xgboost scikit-learn pyarrow"
 
-# Đợi ~2 phút để training hoàn tất
+# Train XGBoost
+docker exec spark-master bash -c "cd /opt/spark-apps && export PYSPARK_PYTHON=/usr/bin/python3 && /opt/spark/bin/spark-submit --master local[4] --driver-memory 4g --conf spark.sql.shuffle.partitions=20 /opt/spark-apps/model_retraining_xgb.py"
+
+# Đợi ~6-10 phút để training hoàn tất
 ```
 
 ### Restart Streaming
@@ -245,8 +255,14 @@ docker logs kafka --tail 20
 
 ### Streaming không detect fraud
 ```powershell
-# Check model path
-docker exec spark-master ls -lh /opt/data/models/fraud_dt_21features/
+# Check XGBoost model path
+docker exec spark-master ls -lh /opt/data/models/fraud_xgb_21features/
+
+# Check XGBoost installed
+docker exec spark-master python3 -c "import xgboost"
+
+# Install if missing
+docker exec spark-master bash -c "pip3 install xgboost scikit-learn pyarrow"
 
 # Restart streaming
 docker exec spark-master pkill -f unified_streaming
@@ -294,23 +310,27 @@ docker compose up -d --force-recreate spark-worker
 ## 📈 THÔNG SỐ HỆ THỐNG
 
 ### Model Specifications
-- **Type**: DecisionTree Classifier
-- **Features**: 21 features (numeric, demographic, temporal, geographic, one-hot)
-- **Training Data**: 648,633 rows (50% of fraudTrain.csv)
-- **Model Path**: `/opt/data/models/fraud_dt_21features`
+- **Type**: XGBoost Classifier (Gradient Boosting)
+- **Features**: 21 engineered features (numeric, demographic, temporal, geographic, category one-hot)
+- **Training Data**: 1,296,675 rows (100% of fraudTrain.csv)
+- **Performance**: AUC-ROC 0.9964, Recall ~99%, Precision ~54.6%
+- **Hyperparameters**: 100 trees, max_depth=6, learning_rate=0.3, subsample=0.8
+- **Model Path**: `/opt/data/models/fraud_xgb_21features`
 
 ### Performance Settings
-- **Producer Rate**: 15 tx/s (configurable via TRANSACTION_RATE env)
+- **Producer Rate**: 12 tx/s (configurable via TRANSACTION_RATE env)
 - **Spark Shuffle Partitions**: 20
+- **Driver Memory**: 2GB (streaming), 4GB (training)
 - **Kafka Consumer Poll**: 256ms
 - **Streaming Trigger**: 2 seconds
 - **API Limit**: 10,000 records max
 - **Dashboard Limit**: 100, 500, 1000, 5000, 10000 options
 
 ### Data Paths
-- **Host Data**: `./data/raw/df_sampled.csv`
-- **Container Data**: `/data/raw/df_sampled.csv`
-- **Model**: `/opt/data/models/fraud_dt_21features`
+- **Training Data**: `./data/raw/fraudTrain.csv` (1.3M rows)
+- **Production Data**: `./data/raw/df_test_hdfs.csv` or `df_sampled.csv`
+- **Container Data**: `/data/raw/`
+- **Model**: `/opt/data/models/fraud_xgb_21features`
 - **Cassandra Keyspace**: `hsbc.fraud_alerts`
 
 ---
@@ -346,9 +366,9 @@ Write-Host "Spark UI:  http://localhost:8080"
 
 **Thời gian khởi động:**
 - Infrastructure: ~30 giây
-- Training model: ~2 phút
+- Training XGBoost model: ~6-10 phút (1.3M rows)
 - Streaming startup: ~10 giây
-- **Tổng**: ~3 phút
+- **Tổng**: ~7-11 phút (lần đầu training model)
 
 **Lưu ý:**
 - Model đã train sẽ được lưu persistent trong `./data/models/`

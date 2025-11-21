@@ -18,7 +18,7 @@
                                                     ▼                                ▼
                                             ┌──────────────┐                 ┌──────────────┐
                                             │   MinIO S3   │                 │  ML Model    │
-                                            │   Archive    │                 │ RandomForest │
+                                            │   Archive    │                 │   XGBoost    │
                                             └──────────────┘                 └──────┬───────┘
                                                                                     │
                                                                                     ▼
@@ -130,22 +130,24 @@ Engineered Features:
 
 ### Phase 3: Model Prediction
 ```
-Features → RandomForest Model → Fraud Probability
+Features → XGBoost Model → Fraud Probability
 ```
 
 **Model Architecture**:
-- **Algorithm**: RandomForestClassifier
-- **Trees**: 30
-- **Max Depth**: 8
-- **Features**: 7 engineered + 1 category encoding = 8 total
+- **Algorithm**: XGBoost Classifier (Gradient Boosting)
+- **Trees**: 100 estimators
+- **Max Depth**: 6
+- **Learning Rate**: 0.3
+- **Subsample**: 0.8
+- **Features**: 21 engineered features (numeric, demographic, temporal, geographic, category)
 - **Output**: Fraud probability (0.0 - 1.0)
 - **Threshold**: Configurable (default: model prediction = 1.0)
 
 **Training**:
-- **Dataset**: fraudTrain.csv (20% sample for speed)
+- **Dataset**: fraudTrain.csv (1,296,675 rows - 100% data)
 - **Split**: 80% train, 20% test
-- **Evaluation**: AUC-ROC
-- **Location**: `/opt/data/models/fraud_rf_lean`
+- **Evaluation**: AUC-ROC 0.9964, Recall ~99%, Precision ~54.6%
+- **Location**: `/opt/data/models/fraud_xgb_21features`
 
 ---
 
@@ -182,7 +184,7 @@ hsbc-data/
 │   └── year=2020/month=01/day=01/
 │       └── part-00000-xxxxx.parquet
 └── models/
-    └── fraud_rf_lean/
+    └── fraud_xgb_21features/
         ├── metadata/
         ├── stages/
         └── data/
@@ -371,18 +373,20 @@ API → Streamlit Dashboard → Web Browser
 │     PySpark MLlib (Spark ML)        │
 │                                     │
 │  ┌────────────────────────────────┐ │
-│  │   RandomForestClassifier       │ │
-│  │   - 30 trees                   │ │
-│  │   - Max depth: 8               │ │
-│  │   - Features: 8                │ │
+│  │   XGBoost Classifier           │ │
+│  │   - 100 estimators             │ │
+│  │   - Max depth: 6               │ │
+│  │   - Learning rate: 0.3         │ │
+│  │   - Features: 21               │ │
+│  │   - AUC-ROC: 0.9964            │ │
 │  └────────────────────────────────┘ │
 └─────────────────────────────────────┘
 ```
 
 **Pipeline**:
-1. StringIndexer (category encoding)
-2. VectorAssembler (feature vector)
-3. RandomForestClassifier (prediction)
+1. StringIndexer (label encoding)
+2. VectorAssembler (21 feature vector)
+3. SparkXGBClassifier (gradient boosting prediction)
 
 ---
 

@@ -216,7 +216,7 @@ Start-Sleep -Seconds 30
 
 ## 🤖 MODEL TRAINING
 
-### Train Model
+### Train XGBoost Model
 ```powershell
 # Cách 1: Makefile
 make train
@@ -225,21 +225,27 @@ make train
 .\scripts\automation.ps1 train
 
 # Cách 3: Manual
-docker cp streaming-pipeline/model_retraining.py spark-master:/opt/spark-apps/
+# Install XGBoost first
+docker exec spark-master bash -c "pip3 install xgboost scikit-learn pyarrow"
+
+# Copy files
+docker cp streaming-pipeline/model_retraining_xgb.py spark-master:/opt/spark-apps/
 docker cp streaming-pipeline/feature_engineering.py spark-master:/opt/spark-apps/
-docker exec spark-master /opt/spark/bin/spark-submit \
-  --master spark://spark-master:7077 \
-  --deploy-mode client \
-  /opt/spark-apps/model_retraining.py
+
+# Train (local mode recommended for training)
+docker exec spark-master bash -c "cd /opt/spark-apps && export PYSPARK_PYTHON=/usr/bin/python3 && /opt/spark/bin/spark-submit --master local[4] --driver-memory 4g --conf spark.sql.shuffle.partitions=20 /opt/spark-apps/model_retraining_xgb.py"
 ```
 
 ### Verify Model
 ```powershell
-# Check model exists
-docker exec spark-master ls -lh /opt/data/models/fraud_rf_lean
+# Check XGBoost model exists
+docker exec spark-master ls -lh /opt/data/models/fraud_xgb_21features
 
 # View metadata
-docker exec spark-master cat /opt/data/models/fraud_rf_lean/metadata/part-00000
+docker exec spark-master cat /opt/data/models/fraud_xgb_21features/metadata/part-00000
+
+# Check XGBoost version
+docker exec spark-master python3 -c "import xgboost; print('XGBoost version:', xgboost.__version__)"
 ```
 
 ---
@@ -595,8 +601,8 @@ make stream
 docker exec cassandra cqlsh -e "COPY hsbc.fraud_alerts TO '/tmp/backup.csv' WITH HEADER=TRUE;"
 docker cp cassandra:/tmp/backup.csv ./backups/
 
-# Model
-docker cp spark-master:/opt/data/models/fraud_rf_lean ./backups/model_backup/
+# XGBoost Model
+docker cp spark-master:/opt/data/models/fraud_xgb_21features ./backups/model_backup/
 ```
 
 ---
