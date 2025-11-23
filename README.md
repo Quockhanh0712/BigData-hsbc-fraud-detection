@@ -97,7 +97,7 @@
 ### 🛠️ Technical Features
 
 - **Streaming ETL**: Kafka → Spark → Cassandra/MinIO pipeline
-- **Feature Engineering**: 21 features từ raw transaction data
+- **Feature Engineering**:  features từ raw transaction data
 - **ML Pipeline**: PySpark MLlib với XGBoost integration
 - **REST API**: FastAPI backend với async operations
 - **Web UI**: Interactive Streamlit dashboard
@@ -118,15 +118,15 @@
 
     ┌──────────────┐                ┌──────────────┐                ┌──────────────┐
     │   Producer   │                │    Kafka     │                │    Spark     │
-    │              │───────────────▶│   Broker     │───────────────▶│  Streaming   │
+    │              │───────────────▶│   Broker     │───────────────▶│  Streaming  │
     │ CSV Replay   │  JSON Messages │ transactions │  Micro-Batches │   Pipeline   │
-    │ 12 tx/sec    │                │  (3 parts)   │                │   (local[4]) │
+    │ 12 tx/sec    │                │              │                │              │
     └──────────────┘                └──────────────┘                └──────┬───────┘
                                                                            │
                                                                            │
                                     ┌──────────────────────────────────────┴────────┐
                                     │                                                │
-                                    │    Feature Engineering (21 features)          │
+                                    │    Feature Engineering           │
                                     │                                                │
                                     └──────────────────────────────────────┬────────┘
                                                                            │
@@ -486,45 +486,8 @@ docker stats --no-stream
 
 ---
 
-## 📖 Documentation
 
-### 📚 Comprehensive Guides
 
-| Document | Description | Link |
-|----------|-------------|------|
-| **📊 Data Flow Guide** | Chi tiết luồng dữ liệu qua hệ thống | [DATA_FLOW_GUIDE.md](./DATA_FLOW_GUIDE.md) |
-| **🔧 Feature Engineering** | 21 features và cách tính toán | [FEATURE_ENGINEERING_GUIDE.md](./FEATURE_ENGINEERING_GUIDE.md) |
-| **🤖 Model Training** | XGBoost training process | [MODEL_TRAINING_GUIDE.md](./MODEL_TRAINING_GUIDE.md) |
-| **🏗️ Architecture** | System architecture và design | [ARCHITECTURE.md](./ARCHITECTURE.md) |
-| **📐 Technical Design** | Technical specifications | [TECHNICAL_DESIGN.md](./TECHNICAL_DESIGN.md) |
-| **📋 Checklist** | Operations checklist | [CHECKLIST.md](./CHECKLIST.md) |
-| **💻 Commands** | Command reference | [COMMANDS.md](./COMMANDS.md) |
-| **🚀 Deployment** | Deployment guide | [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md) |
-| **📖 System Guide** | Complete system operations | [SYSTEM_GUIDE.md](./SYSTEM_GUIDE.md) |
-| **🔄 Reset Guide** | Streaming reset procedures | [RESET_STREAMING_GUIDE.md](./RESET_STREAMING_GUIDE.md) |
-| **📊 Monitoring** | Monitoring approaches | [MONITORING_GUIDE.md](./MONITORING_GUIDE.md) |
-| **ℹ️ System Explanation** | Storage strategy explained | [SYSTEM_EXPLANATION.md](./SYSTEM_EXPLANATION.md) |
-
-### 🎯 Quick Links
-
-```bash
-# Data Flow: CSV → Kafka → Spark → ML → Storage
-./DATA_FLOW_GUIDE.md
-
-# Feature Engineering: 21 Features Explained
-./FEATURE_ENGINEERING_GUIDE.md
-
-# Model Training: XGBoost Training Process
-./MODEL_TRAINING_GUIDE.md
-
-# Architecture: Kappa Architecture Design
-./ARCHITECTURE.md
-
-# Operations: Daily Operations Guide
-./CHECKLIST.md
-```
-
----
 
 ## 🔧 Configuration
 
@@ -680,66 +643,8 @@ docker logs api --tail 50
 🚨 Batch 42: Detected 3 fraud alerts → Cassandra
 ```
 
-### 📈 Real-Time Monitoring Script
 
-```powershell
-# Save as watch_fraud.ps1
-while ($true) {
-    Clear-Host
-    Write-Host "=== HSBC FRAUD DETECTION MONITOR ===" -ForegroundColor Cyan
-    Write-Host ""
-    
-    # Fraud count
-    $count = docker exec cassandra cqlsh -e "SELECT COUNT(*) FROM hsbc.fraud_alerts;" 2>$null | Select-String "\d+" | ForEach-Object { $_.Matches.Value }
-    Write-Host "Total Fraud Alerts: $count" -ForegroundColor Yellow
-    
-    # Latest fraud
-    Write-Host "`nLatest Fraud (last 30 seconds):" -ForegroundColor Green
-    docker logs spark-master --since 30s 2>&1 | Select-String "FRAUD DETECTED" | Select-Object -Last 5
-    
-    Start-Sleep -Seconds 5
-}
-```
 
-Run: `.\watch_fraud.ps1`
-
----
-
-## 🤝 Contributing
-
-### 🌟 How to Contribute
-
-We welcome contributions! Please follow these guidelines:
-
-1. **Fork** the repository
-2. **Create** a feature branch (`git checkout -b feature/AmazingFeature`)
-3. **Commit** your changes (`git commit -m 'Add some AmazingFeature'`)
-4. **Push** to the branch (`git push origin feature/AmazingFeature`)
-5. **Open** a Pull Request
-
-### 📝 Contribution Areas
-
-- 🐛 Bug fixes
-- ✨ New features
-- 📚 Documentation improvements
-- 🧪 Test coverage
-- 🎨 UI/UX enhancements
-- ⚡ Performance optimizations
-
-### 🔍 Code Standards
-
-```python
-# Python: PEP 8
-black .
-flake8 .
-mypy .
-
-# Documentation: Clear comments
-# Tests: pytest with >80% coverage
-# Commits: Conventional Commits format
-```
-
----
 
 ## 📜 License
 
@@ -747,53 +652,14 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 
 ---
 
-## 👥 Team
 
-**HSBC Fraud Detection Team**
 
-- 🧑‍💻 Development Team
-- 📊 Data Science Team
-- 🔧 DevOps Team
-- 📈 Business Analytics Team
 
----
 
-## 📞 Support
-
-### 🆘 Getting Help
-
-- 📧 Email: support@hsbc-fraud-detection.com
-- 📖 Documentation: [Full Documentation Index](./INDEX.md)
-- 🐛 Issues: [GitHub Issues](https://github.com/your-org/hsbc-fraud-detection/issues)
-- 💬 Discussions: [GitHub Discussions](https://github.com/your-org/hsbc-fraud-detection/discussions)
-
-### 🔧 Troubleshooting
-
-**Common Issues**:
-
-1. **Producer not sending data**: Check Kafka connectivity
-2. **Model not found**: Run training step (Step 5)
-3. **No fraud alerts**: Check streaming logs, verify model loaded
-4. **Dashboard not loading**: Check API health at http://localhost:8000
-
-See [SYSTEM_GUIDE.md](./SYSTEM_GUIDE.md#troubleshooting) for detailed troubleshooting.
-
----
-
-## 🙏 Acknowledgments
-
-- Apache Spark Community
-- Apache Kafka Community
-- XGBoost Development Team
-- FastAPI & Streamlit Communities
-- Kaggle Credit Card Fraud Dataset
-
----
 
 <div align="center">
 
 **⭐ Star this repo if you find it useful! ⭐**
 
-Made with ❤️ by HSBC Fraud Detection Team
 
 </div>
