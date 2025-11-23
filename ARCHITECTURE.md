@@ -544,57 +544,6 @@ API Docs         http://localhost:8000/docs
 Dashboard        http://localhost:8501
 ```
 
-### Health Checks
-```bash
-# Automated health check
-make health
-
-# Individual checks
-curl http://localhost:8000/         # API
-docker exec cassandra cqlsh ...     # Cassandra
-docker exec kafka kafka-topics ...  # Kafka
-```
-
----
-
-## 🎯 Design Decisions
-
-### Why Kafka?
-- **Pub/Sub**: Decouple producer from consumers
-- **Buffering**: Handle bursts, backpressure
-- **Scalability**: Partition for parallelism
-- **Reliability**: Message durability
-
-### Why Spark Streaming?
-- **Unified**: Same API for batch & streaming
-- **ML Integration**: Native MLlib support
-- **Scalability**: Distributed processing
-- **Fault Tolerance**: RDD lineage, checkpointing
-
-### Why Cassandra?
-- **Write-optimized**: Fast inserts (fraud alerts)
-- **Scalable**: Linear scale-out
-- **Available**: High availability (no SPOF)
-- **Schema**: Flexible column family
-
-### Why MinIO?
-- **S3-compatible**: Standard API
-- **Local**: No cloud dependencies
-- **Cost**: Free, open-source
-- **Archive**: Long-term storage
-
-### Why FastAPI?
-- **Performance**: Async, fast
-- **Docs**: Auto-generated OpenAPI
-- **Type safety**: Pydantic models
-- **Modern**: Python 3.11+
-
-### Why Streamlit?
-- **Rapid**: Quick dashboard development
-- **Python**: Same language as backend
-- **Interactive**: Built-in widgets
-- **Charts**: Plotly integration
-
 ---
 
 ## 📚 References
@@ -608,6 +557,3 @@ docker exec kafka kafka-topics ...  # Kafka
 
 ---
 
-**Last Updated**: November 16, 2025  
-**Version**: 1.0.0  
-**Maintainer**: HSBC Fraud Detection Team
